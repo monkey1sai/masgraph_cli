@@ -1,9 +1,10 @@
 {
   "name": "masfactory-visualizer",
   "displayName": "MASFactory Visualizer",
-  "publisher": "masfactory",
-  "description": "MASFactory Visualizer: Realtime Graph Preview for Python",
-  "version": "1.0.0",
+  "publisher": "GammaLab",
+  "description": "Visualize, edit, and debug MASFactory workflows in VS Code with realtime graph preview and HITL support.",
+  "icon": "media/icon.png",
+  "version": "1.0.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/BUPT-GAMMA/MASFactory.git"
@@ -27,12 +28,18 @@
       {
         "command": "masfactory-visualizer.start",
         "title": "MASFactory Visualizer: Start Graph Preview",
-        "icon": "$(symbol-misc)"
+        "icon": {
+          "light": "media/icon-tab-light.svg",
+          "dark": "media/icon-tab.svg"
+        }
       },
       {
         "command": "masfactory-visualizer.openInEditor",
         "title": "MASFactory Visualizer: Open Graph in Editor Tab",
-        "icon": "$(circuit-board)"
+        "icon": {
+          "light": "media/icon-tab-light.svg",
+          "dark": "media/icon-tab.svg"
+        }
       }
     ],
     "menus": {
