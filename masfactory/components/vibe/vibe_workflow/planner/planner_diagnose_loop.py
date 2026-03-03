@@ -1,8 +1,23 @@
-from masfactory import NodeTemplate,Loop
+from masfactory import NodeTemplate, Loop
 from .planner_agent import PlannerAgent
 from .diagnose_node import DiagnoseNode
+
+
+def _as_bool(value: object) -> bool:
+    """Best-effort bool coercion used by loop termination checks."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes", "y", "on"}:
+            return True
+        if lowered in {"false", "0", "no", "n", "off", ""}:
+            return False
+    return bool(value)
+
+
 def terminate_check(messages: dict, _attributes: dict | None = None) -> bool:
-    return not bool(messages.get("diagnose_has_issues", False))
+    return not _as_bool(messages.get("diagnose_has_issues", False))
 
 
 PlannerDiagnoseLoop = NodeTemplate(
