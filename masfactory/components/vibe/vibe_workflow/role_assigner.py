@@ -48,12 +48,14 @@ RoleAssignerHuman = NodeTemplate(
    pull_keys={},
    push_keys={},
 )
-def terminate_check(messages:dict):
-   user_advice:str = messages.get("user_advice","")
-   if len(user_advice.strip()) == 0 or "agree" in user_advice.lower():
-      return True
-   else:
-      return False
+
+
+def terminate_check(messages: dict) -> bool:
+   """Stop when user gives no feedback or explicitly agrees."""
+   user_advice = messages.get("user_advice", "")
+   if not isinstance(user_advice, str):
+      user_advice = str(user_advice)
+   return (not user_advice.strip()) or ("agree" in user_advice.lower())
 
 RoleAssignerGraph = NodeTemplate(
    Loop,
