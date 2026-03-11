@@ -46,14 +46,6 @@ Runtime behavior:
 
 ---
 
-## The `graph_design` standard
-
-The standard definition lives under the repository `graph_design/` directory. All future generation/parsing of `graph_design` should align with that standard.
-
-The same standard is used by the Visualizer **Vibe** tab when previewing/editing `graph_design.json`.
-
----
-
 ## Working with Visualizer
 
 Recommended workflow:
@@ -73,4 +65,3 @@ If you want the design generation process to better fit your domain (role assign
 - implement your own “generate → preview → modify → confirm” loop.
 
 The default build workflow lives under `masfactory/components/vibe/vibe_workflow`.
-

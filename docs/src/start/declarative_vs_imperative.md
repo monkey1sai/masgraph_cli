@@ -2,7 +2,7 @@
 
 MASFactory supports two paradigms for building workflows:
 
-- **Declarative**: declare the topology **in one place** when instantiating `RootGraph/Graph/Loop`. During `build()`, MASFactory **assembles** nodes/edges and performs consistency checks.
+- **Declarative**: declare the topology **in one place** when instantiating `RootGraph/Graph/Loop`. During `build()`, MASFactory **materializes** nodes/edges and completes basic constraint handling.
 - **Imperative**: create a `Graph/RootGraph/Loop` first, then **incrementally** add nodes and edges by calling `create_node()` / `create_edge()`. This reads like issuing construction commands to a graph, hence “imperative”.
 
 ::: tip Choosing between them
@@ -35,7 +35,7 @@ model = OpenAIModel(
 # 2) A reusable node template (create multiple similar Agent nodes)
 BaseAgent = NodeTemplate(Agent, model=model)
 
-# 3) Declarative assembly: declare nodes/edges up front; build() assembles and validates
+# 3) Declarative assembly: declare nodes/edges up front; build() materializes the structure and completes basic constraint handling
 g = RootGraph(
     name="qa_two_stage_decl",
     nodes=[

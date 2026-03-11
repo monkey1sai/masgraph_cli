@@ -1,8 +1,8 @@
 # 基础组件
-组件是 MASFactory 中构成工作流的元素。这些组件包括 `Node` 类组件、`Edge` 组件和 `Message` 组件。
+组件是 MASFactory 中构成工作流的元素。这些组件包括 `Node` 类组件、`Edge` 组件和 `MessageFormatter` 组件。
 - `Node`：`Graph` 上的抽象计算单元，其中 Graph、Agent、控制逻辑等均为 `Node` 的派生类
 - `Edge`：连接两个节点，用于流程控制与消息自动转发。
-- `Message`：提供统一的消息解析与分发机制。`Message` 由 MASFactory 自动处理，开发者只需告知 MASFactory 使用哪一种 `MessageFormatter` 来处理节点消息。
+- `MessageFormatter`：定义“如何把模型输出解析成 `dict`”以及“如何把 `dict` 渲染成提示词文本”。
 
 ::: tip Node 组件
 `Node` 组件不直接出现在 MASFactory 的工作流（Workflow）中，而是以其派生类的形式出现，如 `Graph`、`Agent`、`Switch` 等。它们承担着子工作流、计算与控制等核心功能。下面介绍的所有组件均为 `Node` 类组件。
@@ -34,12 +34,12 @@ MASFactory 提供两类顶层组件：`SingleAgent` 与 `RootGraph`。
     - `edge_to_exit`：参数包括 `sender`、`keys`?；返回 `Edge`。<br>
   创建一个从图中节点 `sender` 到图出口的有向边。
     - `build`：无参数。<br>
-  递归构建 `RootGraph` 及其子图和节点，并完成一致性检查。在调用 `invoke` 前必须执行此方法。
+  递归构建 `RootGraph` 及其子图和节点；对于声明式图，还会在此阶段把 `nodes=[...]` / `edges=[...]` 物化成真实节点与边。在调用 `invoke` 前必须执行此方法。
     - `invoke`：参数包括 `input`、`attributes`?；返回 `(dict, dict)`。<br>
   启动工作流执行。其中 `input` 的格式需与入口边 `keys` 对齐；返回 `(output_dict, attributes_dict)`。
 ::: warning Graph 约束（实践建议）
 为避免执行期死锁/提前退出，建议遵守以下约束：<br>
-1. 尽量避免孤立节点（入度为 0 或出度为 0 的节点）；<br>
+1. 尽量避免悬空/无路径节点；当前框架不会在 `build()` 阶段统一拒绝这类结构；<br>
 2. 创建与 `entry` 和 `exit` 相连的边时，必须使用 `edge_from_entry` 或 `edge_to_exit` 接口，不可使用 `create_edge` 接口；<br>
 3. `create_edge` 接口中的 `receiver` 和 `sender` 节点必须是使用当前 Graph 的 `create_node` 接口创建的 `Node` 对象；<br>
 4. 所有的 `Node` 和 `Edge` 不能出现环路。如果需要使用循环工作流，请使用 `Loop` 组件。
@@ -66,7 +66,7 @@ MASFactory 提供两类顶层组件：`SingleAgent` 与 `RootGraph`。
 - 构造参数： `name`、`pull_keys`?、`push_keys`?、`attributes`? <br>
     其中 `name` 为图名称，用于日志中的标识；<br>
     `pull_keys`、`push_keys` 和 `attributes` 均为节点变量控制逻辑。`pull_keys` 控制从母图中的节点变量中提取相应字段；`push_keys` 控制向母图中更新相应字段；`attributes` 为本节点自带的节点变量字段。相关介绍参考：[概念-节点变量](/zh/guide/concepts#节点变量)。
-- 特点：内置 `Entry`/`Exit`，作为“阶段”承载多个节点；继承 `BaseGraph` 的节点/边管理与一致性校验。
+- 特点：内置 `Entry`/`Exit`，作为“阶段”承载多个节点；继承 `BaseGraph` 的节点/边管理能力，并在建边时做重复边/非法环路等基础约束检查。
 - 相关方法：`edge_from_entry`、`edge_to_exit`、`create_node`和`create_edge`，具体介绍参考: [RootGraph](#RootGraph)。
 - 适用场景：将复杂流程划分为若干子阶段，便于复用与调试。
 
@@ -136,7 +136,7 @@ MASFactory 提供两类顶层组件：`SingleAgent` 与 `RootGraph`。
 - 构造参数： `name`、`model`、`default_instructions`、`instruction_key`?、`prompt_template`?、`tools`?、`memories`?、`retrievers`?、`pull_keys`?、`push_keys`?、`model_settings`?、`role_name`? <br>
   - `default_instructions`：默认指令（初始化时使用）。实际运行时通常由上游通过 `instruction_key` 字段每次动态提供；<br>
   - `instruction_key`：入边消息中用于“动态覆盖指令”的键名，默认值为 `"instructions"`。如果在入边消息中检测到该键，则本轮执行将以其值作为指令并覆盖 `default_instructions`；<br>
-  - `name`、`model`、`tools`、`memories`、`pull_keys`、`model_settings`、`model_settings`、`prompt_template`：同 [Agent](#Agent)；<br>
+  - `name`、`model`、`tools`、`memories`、`retrievers`、`pull_keys`、`push_keys`、`model_settings`、`prompt_template`：同 [Agent](#Agent)；<br>
 - 使用示例：[DynamicAgent示例](/zh/examples/agents)
 
 ## 条件分支组件

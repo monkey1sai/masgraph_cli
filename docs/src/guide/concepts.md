@@ -67,16 +67,16 @@ A Graph is a collection of nodes and edges, forming a directed acyclic graph com
 
 - **Node Management**: Create and manage nodes in the graph through the `create_node` method
 - **Edge Management**: Create connection relationships between nodes through the `create_edge` series methods
-- **Integrity Checking**: Ensure correctness of graph structure, including loop detection, isolated node checking, etc.
+- **Basic Constraint Handling**: Handle duplicate edges, illegal cycles, reserved names, and other baseline constraints during graph construction
 - **Execution Control**: Manage execution order of nodes within the graph and message passing
 
 ### Graph Constraints
 
-To ensure correct graph execution, the following constraints must be satisfied:
-1. There cannot be isolated nodes in the graph (nodes with in-degree or out-degree of 0)
-2. Loop structures cannot appear (use Loop components if loops are needed)
-3. Both nodes connected by edges in the graph must be internal nodes within this graph
-4. Entry and exit connections must use dedicated edge creation interfaces
+To keep graph execution predictable, the following constraints are recommended:
+1. Avoid dangling or unreachable nodes whenever possible; the framework does not uniformly reject isolated-node structures during `build()`
+2. Illegal cycle structures cannot appear (use `Loop` components when loops are needed)
+3. Both nodes connected by an edge must belong to the current graph
+4. Entry and exit connections must use the dedicated edge creation interfaces
 
 ### Workflows
 
@@ -210,7 +210,7 @@ Related examples:
 
 ### Basic Concepts of Messages
 
-- **Message Objects**: Carriers that encapsulate data content and format information
+- **Message Payloads**: MASFactory uses Python `dict` as the structured carrier for node input/output
 - **Message Formatters**: Components responsible for message format conversion
 - **Message Aggregation**: Merge multiple input messages into unified format
 - **Message Distribution**: Send output messages to all downstream nodes

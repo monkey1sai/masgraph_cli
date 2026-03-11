@@ -33,7 +33,7 @@ pip install -U masfactory -i https://pypi.org/simple
 在命令行执行：
 
 ```bash
-python -c "import masfactory; print('masfactory version:', masfactory.__version__)"
+python -c "from importlib.metadata import version; print('masfactory version:', version('masfactory'))"
 ```
 
 进一步验证核心对象可导入：
@@ -44,6 +44,9 @@ python -c "from masfactory import RootGraph, Graph, Loop, Agent, CustomNode; pri
 
 ::: tip 提示
 这一步只验证“包安装与导入”是否正常；不需要配置任何模型 API Key。
+
+如果你想查看已安装包的发布版本，优先使用 `importlib.metadata.version("masfactory")`；
+它和 PyPI 上的版本号保持一致。
 :::
 
 ## 3) 安装 MASFactory Visualizer（VS Code 插件）

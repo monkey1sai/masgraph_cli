@@ -32,7 +32,7 @@ pip install -U masfactory -i https://pypi.org/simple
 Check the installed version:
 
 ```bash
-python -c "import masfactory; print('masfactory version:', masfactory.__version__)"
+python -c "from importlib.metadata import version; print('masfactory version:', version('masfactory'))"
 ```
 
 Verify key imports:
@@ -43,6 +43,9 @@ python -c "from masfactory import RootGraph, Graph, Loop, Agent, CustomNode; pri
 
 ::: tip Note
 This only verifies that the package is installed and importable. You do not need any model API keys for this step.
+
+If you want the published package version, prefer `importlib.metadata.version("masfactory")`.
+It matches the version shown on PyPI.
 :::
 
 ## 3) Install MASFactory Visualizer (VS Code extension)

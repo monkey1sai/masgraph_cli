@@ -87,4 +87,4 @@ If you want an agent to read from attributes, explicitly set `pull_keys` to the 
 ## 3) What to read next?
 
 - For a systematic understanding of declarative orchestration: read the **Development Guide** and **Examples**.
-- For runnable side-by-side comparisons: run `examples/run_all.py` in this repo (includes Imperative vs Declarative comparisons).
+- For runnable workflows: continue with the **Examples** section, or check `applications/*/README.md` in this repository.

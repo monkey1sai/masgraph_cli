@@ -44,14 +44,6 @@ Workflow = NodeTemplate(
 3. 编译 `graph_design` 到当前 `VibeGraph` 实例内的 nodes/edges；
 4. 作为普通 `Graph` 执行。
 
----
-
-## graph_design 标准
-
-`graph_design` 的标准定义在仓库的 `graph_design/` 目录。  
-后续所有 `graph_design` 的生成与解析都应对齐此标准。
-
-在 Visualizer 的 Vibe 视图中预览/编辑 `graph_design.json` 时，也应以该目录为准。
 
 ---
 
@@ -74,4 +66,3 @@ Workflow = NodeTemplate(
 - 在 workflow 里实现你的 “生成 → 预览 → 修改 → 确认” 逻辑
 
 默认的 build workflow 是 `masfactory/components/vibe/vibe_workflow`。
-

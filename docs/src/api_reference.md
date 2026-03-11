@@ -159,106 +159,14 @@ Receive message from the edge and clear congestion status.
 
 ---
 
-### Message Class
-
-::: info Message Base Class
-Message is the abstract base class for all messages, providing a unified interface for message content.
-:::
-
-```python
-class Message(ABC):
-    def __init__(self)
-```
-
-#### Core Methods
-
-##### __add__()
-
-```python
-def __add__(self, other: Message) -> Message
-```
-
-Concatenate two message objects.
-
-**Parameters:**
-- `other`: Another message to concatenate
-
-**Returns:**
-- `Message`: Concatenated message
-
-##### content()
-
-```python
-def content() -> str
-```
-
-Get the string representation of the message.
-
-**Returns:**
-- `str`: Message content
-
-##### dict()
-
-```python
-def dict() -> dict
-```
-
-Get the internal dictionary object of the message.
-
-**Returns:**
-- `dict`: Dictionary representation of the message
-
-::: warning Note
-Modifying the returned dictionary object will affect the message content.
-:::
-
----
-
-### JsonMessage Class
-
-::: info JSON Format Message
-JsonMessage is a JSON format message implementation, inheriting from the Message class.
-:::
-
-```python
-class JsonMessage(Message):
-    def __init__(self, content: dict)
-```
-
-#### Constructor Parameters
-
-| Parameter | Type | Description |
-|------|------|------|
-| `content` | `dict` | Content of the message, represented as a Python dictionary |
-
-#### Special Methods
-
-##### __add__()
-
-```python
-def __add__(self, other: Message) -> JsonMessage
-```
-
-Merge the content of two messages.
-
-**Merge Rules:**
-- If there are duplicate keys, values in other will override values in the current message
-- Return type remains JsonMessage
-
-**Example:**
-```python
-msg1 = JsonMessage({"x": 1, "z": 4})
-msg2 = JsonMessage({"x": 2, "y": 3})
-result = msg1 + msg2
-# Result: {"x": 2, "y": 3, "z": 4}
-```
-
----
-
 ### MessageFormatter Class
 
 ::: info Message Formatter Base Class
-MessageFormatter is the abstract base class for all message formatters, implementing the singleton pattern.
+MessageFormatter is the abstract base class for all message formatters. It is responsible for two things:
+- parsing model output text into a structured `dict`
+- rendering a structured `dict` into prompt text
+
+The public API no longer exposes message objects such as `Message` or `JsonMessage`; the framework now uses `dict` as the unified message carrier.
 :::
 
 ```python
@@ -272,27 +180,45 @@ class MessageFormatter(ABC):
 
 ```python
 @abstractmethod
-def format(self, message: str, key_description: dict) -> Message
+def format(self, message: str) -> dict
 ```
 
-Format raw message string into a specific message object.
+Parse raw model output text into a structured `dict`.
 
 **Parameters:**
 - `message`: Raw message string
-- `key_description`: Dictionary describing the message structure
 
 **Returns:**
-- `Message`: Formatted message object
+- `dict`: Parsed structured result
 
 **Exceptions:**
 - `NotImplementedError`: Subclasses must implement this method
+
+##### dump() *[Abstract Method]*
+
+```python
+@abstractmethod
+def dump(self, message: dict) -> str
+```
+
+Render a structured `dict` into model input text.
+
+**Parameters:**
+- `message`: Structured message dictionary
+
+**Returns:**
+- `str`: Rendered text
+
+::: tip Note
+`MessageFormatter` itself is not a singleton. Only stateless formatter implementations such as `StatelessFormatter` use a shared-instance strategy.
+:::
 
 ---
 
 ### JsonMessageFormatter Class
 
 ::: info JSON Message Formatter
-JsonMessageFormatter is a JSON format message formatter that converts JSON strings to JsonMessage objects.
+JsonMessageFormatter is a strict JSON formatter. It parses model output into a `dict`, and serializes a `dict` back into JSON text.
 :::
 
 ```python
@@ -305,43 +231,38 @@ class JsonMessageFormatter(MessageFormatter):
 ##### format()
 
 ```python
-def format(self, message: str, key_description: dict) -> JsonMessage
+def format(self, message: str) -> dict
 ```
 
-Parse JSON string and validate its structure meets requirements.
+Parse a JSON object from model output and return it as a `dict`.
 
 **Parameters:**
 - `message`: JSON string message
-- `key_description`: Dictionary describing the message structure
-
-**Returns:**
-- `JsonMessage`: JsonMessage object containing validated data
-
-**Exceptions:**
-- `KeyError`: If required keys are missing
-- `json.JSONDecodeError`: If message is not valid JSON format
-
-**Features:**
-- Supports extracting JSON content from ```json code blocks
-- Only extracts fields present in key_description
-- Validates missing required fields
-
-##### format_to_json()
-
-```python
-def format_to_json(self, message: str) -> dict
-```
-
-Convert message string to JSON dictionary.
-
-**Parameters:**
-- `message`: Raw string, supports text containing ```json code blocks
 
 **Returns:**
 - `dict`: Parsed JSON object
 
 **Exceptions:**
-- `json.JSONDecodeError`: Thrown when string is not valid JSON
+- `ValueError`: Raised when no valid JSON object can be parsed from the message
+
+**Features:**
+- Tries to remove code fences and extract the outermost JSON substring
+- Applies limited repair for malformed JSON before failing
+- Always returns a `dict`
+
+##### dump()
+
+```python
+def dump(self, message: dict) -> str
+```
+
+Serialize a structured `dict` to a JSON string.
+
+**Parameters:**
+- `message`: Structured message dictionary
+
+**Returns:**
+- `str`: JSON text
 
 ## Component Modules
 
@@ -905,7 +826,7 @@ class DynamicAgent(Agent):
 |------|------|--------|------|
 | `name` | `str` | - | Node name |
 | `model` | `Model` | - | Model adapter |
-| `default_instructions` | `str` | `""` | Default instructions |
+| `default_instructions` | `str` | `""` | Default instructions used at initialization; runtime behavior is usually overridden by the field referenced by `instruction_key` |
 | `instruction_key` | `str` | `"instructions"` | Key name for dynamic instructions |
 | `formatters` | `MessageFormatter \| list[MessageFormatter] \| None` | `None` | Input/output formatters (same semantics as Agent) |
 | `max_retries` | `int` | `3` | Maximum retries for model calls |
@@ -919,9 +840,14 @@ class DynamicAgent(Agent):
 
 #### Features
 
-- **Dynamic Instructions**: Can update instructions at runtime through incoming edge messages
+- **Dynamic Instructions**: At runtime, reads the field named by `instruction_key` from the input message and uses it to override the instructions for the current execution
 - **Flexible Configuration**: Supports custom instruction key names
 - **Complete Functionality**: Inherits all functionality from Agent
+
+::: warning Note
+The current implementation requires the input message to contain the field referenced by `instruction_key`.
+If that field is missing, execution raises `KeyError`.
+:::
 
 ---
 

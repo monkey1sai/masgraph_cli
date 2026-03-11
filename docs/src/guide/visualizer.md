@@ -100,13 +100,11 @@ Use it to:
 - Apply human review before compiling to executable graphs;
 - Persist structure changes as a versionable IR.
 
-The `graph_design` standard is defined under the repository `graph_design/` directory.
-
 ![vibe-tab](/imgs/visualizer/vibe-tab.png)
 
 **Layout**
 - *Component panel (left)*: common components (Agent / Graph / Loop / Switch …) and drag-to-add nodes.
-- *Editor canvas (middle)*: visualize and edit the `graph_design.json` topology; supports Fit/Relayout, zoom and drag.
+- *Editor canvas (middle)*: visualize and edit the `graph_design.json` topology; supports Fit/Relayout, zoom, drag, and context-menu operations.
 - *Details panel (right)*: inspect/edit node/edge properties (type, label, agent, tools, attributes, etc.) and save back to JSON.
 
 ---

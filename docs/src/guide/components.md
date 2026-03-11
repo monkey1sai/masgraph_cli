@@ -1,9 +1,9 @@
 # Basic Components
 
-Components are the elements that constitute workflows in MASFactory. These components include `Node` class components, `Edge` components, and `Message` components.
-- `Node`: Abstract computational unit on `Graph`, where Graph, Agent, control logic, etc. are all derived classes of `Node`
-- `Edge`: Connects two nodes for flow control and automatic message forwarding.
-- `Message`: Provides unified message parsing and distribution mechanism. `Message` is automatically handled by MASFactory, developers only need to tell MASFactory which `MessageFormatter` to use for processing node messages.
+Components are the building blocks of MASFactory workflows. They include `Node` components, `Edge` components, and `MessageFormatter` components.
+- `Node`: the abstract computation unit on a `Graph`; `Graph`, `Agent`, control components, and others are all derived from `Node`
+- `Edge`: connects two nodes for flow control and automatic message forwarding
+- `MessageFormatter`: defines how model output is parsed into a `dict`, and how a `dict` is rendered back into prompt text
 
 ::: tip Node Components
 `Node` components do not appear directly in MASFactory workflows, but appear as their derived classes, such as `Graph`, `Agent`, `Switch`, etc. They undertake core functions such as sub-workflows, computation, and control. All components introduced below are `Node` class components.
@@ -35,15 +35,15 @@ For detailed introduction to `node variables`, please refer to: [Concepts-Node V
     - `edge_to_exit`: Parameters include `sender`, `keys`?; returns `Edge`.<br>
   Create a directed edge from node `sender` in the graph to graph exit.
     - `build`: No parameters.<br>
-  Recursively build `RootGraph` and its subgraphs and nodes, and complete consistency checking. Must execute this method before calling `invoke`.
+  Recursively build `RootGraph`, its subgraphs, and its nodes. For declarative graphs, this is also where `nodes=[...]` / `edges=[...]` are materialized into real nodes and edges. Must execute this method before calling `invoke`.
     - `invoke`: Parameters include `input`, `attributes`?; returns `(dict, dict)`.<br>
   Start workflow execution. Where `input` format needs to match entry edge `keys`; returns `(output_dict, attributes_dict)`.
-::: warning Graph Constraints
-A correct Graph must satisfy the following conditions:<br>
-1. There are no isolated nodes in the Graph (nodes with in-degree or out-degree of 0);<br>
-2. When creating edges connected to `entry` and `exit`, must use `edge_from_entry` or `edge_to_exit` interfaces, cannot use `create_edge` interface;<br>
-3. The `receiver` and `sender` nodes in `create_edge` interface must be `Node` objects created using the current Graph's `create_node` interface;<br>
-4. All `Node` and `Edge` cannot form loops. If you need to use loop workflows, please use `Loop` component.
+::: warning Graph Constraints (recommended practice)
+To avoid deadlocks or unexpected early exits at runtime, follow these constraints when possible:<br>
+1. Avoid dangling or unreachable nodes whenever possible; the framework does not uniformly reject isolated-node structures during `build()`;<br>
+2. When creating edges connected to `entry` and `exit`, you must use `edge_from_entry` or `edge_to_exit`, not `create_edge`;<br>
+3. The `receiver` and `sender` passed to `create_edge` must be `Node` objects created by the current graph's `create_node` method;<br>
+4. `Node` and `Edge` definitions must not create illegal cycles. If you need loop behavior, use the `Loop` component.
 :::
 - Example reference: [Create a linear workflow](/examples/sequential_workflow)
 
@@ -54,7 +54,7 @@ Suitable for quick Q&A, simple tool calls, scripted batch processing and other t
   Parameter meanings refer to [Agent](#Agent).
 - Related methods:
     - `invoke`: Parameters include `input` (`dict`); returns `dict`.<br>
-    `SingleAgent` input/output both use dictionary payloads.
+    `SingleAgent` uses `dict` for both input and output (parsed/rendered by the configured `MessageFormatter`).
 - Example: [Create a single agent workflow](/examples/agents#SingleAgent)
 
 ## Subgraph Components
@@ -66,7 +66,7 @@ Sub-workflow node supporting reuse and nesting.
 - Constructor parameters: `name`, `pull_keys`?, `push_keys`?, `attributes`? <br>
     Where `name` is the graph name for identification in logs;<br>
     `pull_keys`, `push_keys` and `attributes` are all node variable control logic. `pull_keys` controls extracting corresponding fields from node variables in parent graph; `push_keys` controls updating corresponding fields in parent graph; `attributes` are node variable fields that this node carries. Related introduction reference: [Concepts-Node Variables](/guide/concepts#node-variables).
-- Features: Built-in `Entry`/`Exit`, serving as "stages" hosting multiple nodes; inherits `BaseGraph`'s node/edge management and consistency validation.
+- Features: Built-in `Entry`/`Exit`, serving as "stages" that host multiple nodes; inherits `BaseGraph`'s node/edge management and performs baseline checks such as duplicate-edge and illegal-cycle validation during edge creation.
 - Related methods: `edge_from_entry`, `edge_to_exit`, `create_node` and `create_edge`, specific introduction reference: [RootGraph](#RootGraph).
 - Application scenarios: Divide complex processes into several sub-stages for easy reuse and debugging.
 
@@ -75,6 +75,7 @@ Loop subgraph, encapsulating iteration control and optional LLM termination judg
 - Constructor parameters: `name`, `max_iterations`, `model`?, `terminate_condition_prompt`?, `terminate_condition_function`?, `pull_keys`?, `push_keys`?, `attributes`?, `initial_messages`? 
     - `max_iterations`: Controls maximum loop count.
     - `model` and `terminate_condition_prompt`: Used to set up model and logic for using LLM to determine termination conditions.
+    - `terminate_condition_function`: Recommended Python termination callback (`True` means terminate).
     - `pull_keys`, `push_keys` and `attributes`: Control node variable logic, detailed reference: [Concepts-Node Variables](/guide/concepts#node-variables).
 - Features: Contains an internal `Controller` node that checks `max_iterations` condition and `terminate_condition_prompt` condition at the beginning of each loop; `TerminateNode` supports early exit within loop body.
 - Related methods:
@@ -128,12 +129,13 @@ Standard agent node.
 
 ### `DynamicAgent`
 Dynamic agent node.<br>
-`DynamicAgent` node is similar to `Agent`, the only difference is that `DynamicAgent` node's `instructions` are not determined at coding time, but extracted from `in_edges` messages at runtime.<br>
-When `DynamicAgent` runs, it will retrieve fields containing those specified in `instruction_key` (default is "instructions") from messages sent by all `in_edges`. If the messages from `in_edges` contain this field, the content of this field will be used as `DynamicAgent`'s `instructions`; if this field is not included, it will search for this field in node variables `attributes`; if neither is found, `default_instructions` will be used as `instructions`.
+`DynamicAgent` is similar to `Agent`, except its `instructions` are not fixed at coding time. Instead, they are read from input messages at runtime.<br>
+At runtime, `DynamicAgent` reads the field named by `instruction_key` (default: `"instructions"`) from the input payload, uses that value to override the instructions for the current execution, then removes that field from the input before continuing.
+Therefore, when using `DynamicAgent`, make sure upstream nodes or incoming edges provide that field; otherwise the current implementation raises `KeyError`.
 - Constructor parameters: `name`, `model`, `default_instructions`, `instruction_key`?, `prompt_template`?, `tools`?, `memories`?, `retrievers`?, `pull_keys`?, `push_keys`?, `model_settings`?, `role_name`? <br>
-  - `default_instructions`: Default instructions. Same semantics as [Agent](#Agent)'s `instructions`, used when incoming edge messages do not provide the field corresponding to `instruction_key`; supports using placeholders in `instructions` (like `{role_name}`, incoming edge keys, node variables) and formatting before execution;<br>
-  - `instruction_key`: Key name in incoming edge messages for "dynamically overriding instructions", default value is `"instructions"`. If this key is detected in incoming edge messages, this round of execution will use its value as instructions and override `default_instructions`;<br>
-  - `name`, `model`, `tools`, `memories`, `pull_keys`, `model_settings`, `model_settings`, `prompt_template`: Same as [Agent](#Agent);<br>
+  - `default_instructions`: Default instructions used at initialization. In practice, runtime behavior is usually driven by the field referenced by `instruction_key`;<br>
+  - `instruction_key`: Key name in the incoming message used to dynamically override instructions. Default is `"instructions"`; if this key exists in the input, its value is used as the instructions for the current execution;<br>
+  - `name`, `model`, `tools`, `memories`, `retrievers`, `pull_keys`, `push_keys`, `model_settings`, `prompt_template`: Same as [Agent](#Agent);<br>
 - Usage example: [DynamicAgent example](/examples/agents#DynamicAgent)
 
 ## Conditional Branch Components
@@ -146,7 +148,7 @@ Conditional routing component based on callback functions, using `condition_bind
 - Constructor parameters: `name`, `pull_keys`?, `push_keys`? (meaning same as [`Agent`](#Agent))
 - Related methods:
   - `condition_binding(callback, out_edge)`: Bind an `out_edge` with condition callback function.
-    - `callback(message, attributes) -> bool`: Where `message` is the aggregated message from incoming edges (`str` or `dict`), `attributes` is node variables dict; when returning `True`, forward message to that `out_edge` and put the `target` node connected by that `out_edge` into the execution queue.
+    - `callback(message, attributes) -> bool`: where `message` is the aggregated message from incoming edges (`dict`), and `attributes` is the node-variable dict. When it returns `True`, the message is forwarded to that `out_edge` and the target node connected by that edge is added to the execution queue.
 ::: tip LogicSwitch and AgentSwitch
 1. `LogicSwitch` will pass the message `message` from `in_edges` and node variables `attributes` inherited from parent graph into callback functions corresponding to all out_edges, and decide whether to put target nodes connected by those `out_edges` into the execution queue based on the return values of callback functions.
 2. `LogicSwitch` supports "multi-path matching", that is, if multiple `out_edge` corresponding condition functions return `True`, nodes on these paths are all put into the execution queue.
@@ -168,11 +170,11 @@ LLM-based semantic routing component, using `condition_binding`(prompt, out_edge
 
 ## Custom Nodes
 ### `CustomNode`
-Node that customizes runtime process with callback functions, convenient for integrating external computation or rules. Supports setting processing functions during initialization or later through `set_forward`.
+Node that customizes runtime behavior with a callback function, convenient for integrating external computation or rule-based logic. Supports setting the handler at initialization time or later through `set_forward`.
 
-- Constructor parameters: `name`, `forward`?, `memories`?, `tools`?, `pull_keys`?, `push_keys`? <br>
+- Constructor parameters: `name`, `forward`?, `memories`?, `tools`?, `retrievers`?, `pull_keys`?, `push_keys`? <br>
   - `forward`: Custom runtime callback, **must return `dict`**; if `forward` is `None`, this node passes input through as-is (input is also `dict`);<br>
-  - `memories`, `tools`, `retrievers`: Available memory/tool/retriever lists for current node (as optional callback parameters);<br>
+  - `memories`, `tools`, `retrievers`: Available memory / tool / retriever lists for the current node (as optional callback parameters);<br>
   - `pull_keys`, `push_keys`: Same meaning as `Node` (node variables).
 
 - Related methods:

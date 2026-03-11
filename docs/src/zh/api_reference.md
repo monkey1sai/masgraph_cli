@@ -159,108 +159,14 @@ def receive_message() -> dict[str,object]
 **异常：**
 - `RuntimeError`: 如果边没有拥堵
 
----
-
-### Message 类
-
-::: info 消息基类
-Message 是所有消息的抽象基类，提供消息内容的统一接口。
-:::
-
-```python
-class Message(ABC):
-    def __init__(self)
-```
-
-#### 核心方法
-
-##### __add__()
-
-```python
-def __add__(self, other: Message) -> Message
-```
-
-连接两个消息对象。
-
-**参数：**
-- `other`: 要连接的另一个消息
-
-**返回：**
-- `Message`: 连接后的消息
-
-##### content()
-
-```python
-def content() -> str
-```
-
-获取消息的字符串表示。
-
-**返回：**
-- `str`: 消息内容
-
-##### dict()
-
-```python
-def dict() -> dict
-```
-
-获取消息的内部字典对象。
-
-**返回：**
-- `dict`: 消息的字典表示
-
-::: warning 注意
-修改返回的字典对象会影响消息内容。
-:::
-
----
-
-### JsonMessage 类
-
-::: info JSON 格式消息
-JsonMessage 是 JSON 格式的消息实现，继承自 Message 类。
-:::
-
-```python
-class JsonMessage(Message):
-    def __init__(self, content: dict)
-```
-
-#### 构造参数
-
-| 参数 | 类型 | 描述 |
-|------|------|------|
-| `content` | `dict` | 消息的内容，表示为 Python 字典 |
-
-#### 特殊方法
-
-##### __add__()
-
-```python
-def __add__(self, other: Message) -> JsonMessage
-```
-
-合并两个消息的内容。
-
-**合并规则：**
-- 如果有重复键，other 中的值会覆盖当前消息中的值
-- 返回类型保持为 JsonMessage
-
-**示例：**
-```python
-msg1 = JsonMessage({"x": 1, "z": 4})
-msg2 = JsonMessage({"x": 2, "y": 3})
-result = msg1 + msg2
-# 结果: {"x": 2, "y": 3, "z": 4}
-```
-
----
-
 ### MessageFormatter 类
 
 ::: info 消息格式化器基类
-MessageFormatter 是所有消息格式化器的抽象基类，实现单例模式。
+MessageFormatter 是所有消息格式化器的抽象基类，负责两件事：
+- 把模型输出文本解析成结构化 `dict`
+- 把结构化 `dict` 渲染成提示词文本
+
+当前公开 API 不再暴露 `Message` / `JsonMessage` 这类消息对象；框架内部统一以 `dict` 作为消息载体。
 :::
 
 ```python
@@ -274,27 +180,45 @@ class MessageFormatter(ABC):
 
 ```python
 @abstractmethod
-def format(self, message: str, key_description: dict) -> Message
+def format(self, message: str) -> dict
 ```
 
-将原始消息字符串格式化为特定的消息对象。
+将模型输出的原始字符串解析为结构化 `dict`。
 
 **参数：**
 - `message`: 原始消息字符串
-- `key_description`: 描述消息结构的字典
 
 **返回：**
-- `Message`: 格式化后的消息对象
+- `dict`: 解析后的结构化结果
 
 **异常：**
 - `NotImplementedError`: 子类必须实现此方法
+
+##### dump() *[抽象方法]*
+
+```python
+@abstractmethod
+def dump(self, message: dict) -> str
+```
+
+把结构化 `dict` 渲染为模型输入文本。
+
+**参数：**
+- `message`: 结构化消息字典
+
+**返回：**
+- `str`: 渲染后的文本
+
+::: tip 补充
+`MessageFormatter` 本身不是单例；只有 `StatelessFormatter` 这类无状态 formatter 才采用共享实例策略。
+:::
 
 ---
 
 ### JsonMessageFormatter 类
 
 ::: info JSON 消息格式化器
-JsonMessageFormatter 是 JSON 格式的消息格式化器，用于将 JSON 字符串转换为 JsonMessage 对象。
+JsonMessageFormatter 是严格 JSON 输出格式化器，用于把模型输出解析为 `dict`，并把 `dict` 序列化为 JSON 文本。
 :::
 
 ```python
@@ -307,43 +231,37 @@ class JsonMessageFormatter(MessageFormatter):
 ##### format()
 
 ```python
-def format(self, message: str, key_description: dict) -> JsonMessage
+def format(self, message: str) -> dict
 ```
 
-解析 JSON 字符串并验证其结构是否符合要求。
+解析模型输出中的 JSON 对象，返回 `dict`。
 
 **参数：**
 - `message`: JSON 字符串消息
-- `key_description`: 描述消息结构的字典
-
-**返回：**
-- `JsonMessage`: 包含验证数据的 JsonMessage 对象
-
-**异常：**
-- `KeyError`: 如果缺少必需的键
-- `json.JSONDecodeError`: 如果消息不是有效的 JSON 格式
-
-**特性：**
-- 支持提取 ```json 代码块中的 JSON 内容
-- 仅提取 key_description 中存在的字段
-- 对缺失的必需字段进行验证
-
-##### format_to_json()
-
-```python
-def format_to_json(self, message: str) -> dict
-```
-
-将消息字符串转换为 JSON 字典。
-
-**参数：**
-- `message`: 原始字符串，支持包含 ```json 代码块的文本
 
 **返回：**
 - `dict`: 解析后的 JSON 对象
 
 **异常：**
-- `json.JSONDecodeError`: 当字符串不是有效 JSON 时抛出
+- `ValueError`: 当消息中无法解析出合法 JSON 对象时抛出
+
+**特性：**
+- 会尝试去除代码块包装、提取最外层 JSON 子串，并做有限的容错修复
+- 解析结果统一返回 `dict`
+
+##### dump()
+
+```python
+def dump(self, message: dict) -> str
+```
+
+把结构化 `dict` 序列化为 JSON 字符串。
+
+**参数：**
+- `message`: 结构化消息字典
+
+**返回：**
+- `str`: JSON 文本
 
 ## 组件模块
 
@@ -907,7 +825,7 @@ class DynamicAgent(Agent):
 |------|------|--------|------|
 | `name` | `str` | - | 节点名称 |
 | `model` | `Model` | - | 模型适配器 |
-| `default_instructions` | `str` | `""` | 默认指令 |
+| `default_instructions` | `str` | `""` | 初始化时使用的默认指令；运行期通常由 `instruction_key` 对应字段覆盖 |
 | `instruction_key` | `str` | `"instructions"` | 动态指令的键名 |
 | `formatters` | `MessageFormatter \| list[MessageFormatter] \| None` | `None` | 输入/输出格式化器（与 Agent 语义一致） |
 | `max_retries` | `int` | `3` | 模型调用失败时的最大重试次数 |
@@ -921,9 +839,13 @@ class DynamicAgent(Agent):
 
 #### 特性
 
-- **动态指令**：可在运行时通过入边消息更新指令
+- **动态指令**：运行时会从输入消息里读取 `instruction_key` 对应字段，并覆盖本轮指令
 - **灵活配置**：支持自定义指令键名
 - **完整功能**：继承 Agent 的所有功能
+
+::: warning 注意
+当前实现要求输入消息中必须包含 `instruction_key` 对应字段；若缺失，会在执行时触发 `KeyError`。
+:::
 
 ---
 

@@ -1,4 +1,4 @@
-# VibeGraph ChatDev Lite
+# Build ChatDev Lite with VibeGraph
 
 This tutorial demonstrates how to use `VibeGraph` to translate **natural-language intent** into a `graph_design.json` draft, then compile it into a runnable workflow.
 
@@ -76,7 +76,7 @@ Terminate if:
   - tools: codes_check_and_processing_tool
 
 6) Output requirement
-Return ONLY valid JSON following the graph_design standard in graph_design/.
+Return ONLY valid JSON compatible with the current MASFactory graph_design compiler schema.
 Use ENTRY/EXIT as graph ports (case-insensitive).
 Use CONTROLLER/TERMINATE for loop internal endpoints (case-insensitive).
 """
@@ -149,4 +149,3 @@ To regenerate from intent, delete the cache file and rerun.
 - This chapter is designed for quickly learning MASFactory’s VibeGraphing paradigm, so it omits some implementation details of ChatDev.
   For complete reproductions, refer to: [ChatDev-VibeGraph](https://github.com/BUPT-GAMMA/MASFactory/tree/main/applications/chatdev_lite_vibegraph) or [VibeGraph-Demo-ChatDev](https://github.com/BUPT-GAMMA/MASFactory/tree/main/applications/vibegraph_demo).
 :::
-

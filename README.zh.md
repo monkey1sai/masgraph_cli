@@ -1,11 +1,11 @@
 <div align="center">
   <img
-    src="docs/src/public/svg/logo.svg#gh-light-mode-only"
+    src="docs/src/public/svg/logo-centered.svg#gh-light-mode-only"
     alt="MASFactory"
     width="620"
   />
   <img
-    src="docs/src/public/svg/logo-dark.svg#gh-dark-mode-only"
+    src="docs/src/public/svg/logo-dark-centered.svg#gh-dark-mode-only"
     alt="MASFactory"
     width="620"
   />
@@ -40,7 +40,7 @@ pip install -U masfactory
 验证安装：
 
 ```bash
-python -c "import masfactory; print('masfactory version:', masfactory.__version__)"
+python -c "from importlib.metadata import version; print('masfactory version:', version('masfactory'))"
 python -c "from masfactory import RootGraph, Graph, Loop, Agent, CustomNode; print('import ok')"
 ```
 
@@ -100,16 +100,16 @@ print(out["answer"])
 
 ```bash
 # ChatDev
-python applications/chatdev/workflow/main.py --task "Develop a basic Gomoku game." --name "Gomoku"
+python -m applications.chatdev.workflow.main --task "Develop a basic Gomoku game." --name "Gomoku"
 
 # ChatDev Lite（简化版）
-python applications/chatdev_lite/workflow/main.py --task "Develop a basic Gomoku game." --name "Gomoku"
+python -m applications.chatdev_lite.workflow.main --task "Develop a basic Gomoku game." --name "Gomoku"
 
 # ChatDev Lite（VibeGraphing 版本）
-python applications/chatdev_lite_vibegraph/main.py --task "Write a Ping-Pong (Pong) game." --name "PingPong"
+python -m applications.chatdev_lite_vibegraph.main --task "Write a Ping-Pong (Pong) game." --name "PingPong"
 
 # VibeGraph Demo（intent → graph_design.json → compile → run）
-python applications/vibegraph_demo/main.py
+python -m applications.vibegraph_demo.main
 
 # AgentVerse · PythonCalculator
 python applications/agentverse/tasksolving/pythoncalculator/run.py --task "write a simple calculator GUI using Python3."
@@ -128,16 +128,52 @@ python applications/camel/main.py "Create a sample adder by using python"
 
 ```
 .
-├── masfactory/               # MASFactory framework
-├── masfactory-visualizer/    # VS Code extension: MASFactory Visualizer
-├── applications/             # Reproductions and runnable workflows
-├── docs/                     # VitePress docs
-│   ├── .vitepress/
-│   └── src/
-│       ├── zh/
-│       └── en/
-├── README.md                 # English (default)
-├── README.zh.md              # Chinese
+├── masfactory/                       # MASFactory 框架
+│   ├── core/                         # 基础组件：Node / Edge / Gate / MessageFormatter
+│   ├── components/                   # 关键功能组件
+│   │   ├── agents/                   # Agent / DynamicAgent / SingleAgent
+│   │   ├── controls/                 # LogicSwitch / AgentSwitch
+│   │   ├── graphs/                   # Graph / RootGraph / Loop
+│   │   ├── human/                    # Human-in-the-loop 节点
+│   │   ├── composed_graph/           # 复合组件
+│   │   └── vibe/                     # Vibe Graphing
+│   ├── adapters/                     # Model / Memory / Retrieval / MCP 等适配器
+│   ├── integrations/                 # 第三方集成接口 (MemoryOS / UltraRAG, etc.)
+│   ├── utils/                        # Utilities (config, hook, Embedding, etc.)
+│   └── visualizer/                   # MASFactory Visualizer 运行时通信桥
+├── masfactory-visualizer/            # VS Code 插件 MASFactory Visualizer
+├── applications/                     # 示例与复现应用
+│   ├── chatdev/
+│   ├── chatdev_lite/
+│   ├── chatdev_lite_vibegraph/
+│   ├── agentverse/
+│   ├── camel/
+│   ├── hugggpt2/
+│   ├── metagpt/
+│   └── vibegraph_demo/
+├── docs/                             # VitePress 文档站
+├── README.md
+├── README.zh.md
 ├── pyproject.toml
-└── requirements.txt
+├── requirements.txt
+└── uv.lock
 ```
+
+## 📄 引用
+
+如果 MASFactory 对你的研究有帮助，欢迎引用：
+
+```bibtex
+@article{liu2026masfactory,
+  title   = {MASFactory: A Graph-centric Framework for Orchestrating LLM-Based Multi-Agent Systems with Vibe Graphing},
+  author  = {Yang Liu and Jinxuan Cai and Yishen Li and Qi Meng and Zedi Liu and Xin Li and Chen Qian and Chuan Shi and Cheng Yang},
+  journal = {arXiv preprint arXiv:2603.06007},
+  year    = {2026},
+  doi     = {10.48550/arXiv.2603.06007},
+  url     = {https://arxiv.org/abs/2603.06007}
+}
+```
+
+## ⭐ Star 趋势
+
+[![Star History Chart](https://api.star-history.com/svg?repos=BUPT-GAMMA/MASFactory&type=Date)](https://star-history.com/#BUPT-GAMMA/MASFactory&Date)

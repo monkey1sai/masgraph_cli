@@ -4,8 +4,8 @@ layout: home
 
 hero:
   name: "MASFactory"
-  text: "面向 VibeGraphing 的多智能体设计框架"
-  tagline: "从人工搭积木到基于自然语言自主搭建多智能体系统"
+  text: "一个以图为中心的多智能体系统编排框架"
+  tagline: "Vibe Graphing：从自然语言意图到可执行 MAS 工作流"
   image:
     light: /svg/hero-logo.svg
     dark: /svg/hero-logo-dark.svg
@@ -18,11 +18,14 @@ hero:
       text: API 文档
       link: /zh/api_reference
     - theme: alt
+      text: 论文
+      link: https://arxiv.org/abs/2603.06007
+    - theme: alt
       text: 源代码
       link: https://github.com/BUPT-GAMMA/MASFactory
 
 features:
-  - title: 🎨 VibeGraphing：自然语言驱动的设计体验
+  - title: 🎨 Vibe Graphing：自然语言驱动的设计体验
     details: 从行动者到设计者，在于AI的对话中实现多智能体系统的设计与迭代。
   
   - title: 🧩 图结构“搭积木”：原子节点与复合组件

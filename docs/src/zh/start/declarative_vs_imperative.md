@@ -2,7 +2,7 @@
 
 MASFactory 支持两种开发范式：
 
-- **声明式（Declarative）**：在创建 `RootGraph/Graph/Loop` 时**一次性声明**拓扑结构；在 `build()` 阶段框架会根据这些声明**装配出**节点与边并完成一致性检查。  
+- **声明式（Declarative）**：在创建 `RootGraph/Graph/Loop` 时**一次性声明**拓扑结构；在 `build()` 阶段框架会根据这些声明**装配出**节点与边，并完成基础约束处理。
 - **命令式（Imperative）**：先创建 `Graph/RootGraph/Loop` 对象，然后**逐条调用** `create_node()` / `create_edge()`把节点和边添加到图上；这种写法很像给 Graph 下达一系列构建命令，因此称为“命令式”。  
 
 ::: tip 选择建议
@@ -34,7 +34,7 @@ model = OpenAIModel(
 # 2) 声明一个可复用的节点模板（用于批量创建同构 Agent 节点）
 BaseAgent = NodeTemplate(Agent, model=model)
 
-# 3) 声明式构图：在初始化阶段一次性声明 nodes / edges；build() 时由框架装配结构并做一致性校验
+# 3) 声明式构图：在初始化阶段一次性声明 nodes / edges；build() 时由框架装配结构并做基础约束处理
 g = RootGraph(
     name="qa_two_stage_decl",
     nodes=[
