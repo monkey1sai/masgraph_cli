@@ -564,6 +564,7 @@ class Agent(Node):
             tool_results.append(
                 {
                     "role": "tool",
+                    "name": tool_call["name"],
                     "content": self._in_formatter.render_value(tool_call_result),
                     "tool_call_id": tool_call.get("id"),
                 }

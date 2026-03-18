@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from typing import Any
 
@@ -27,6 +28,7 @@ def _render_conversation_prompt(messages: list[dict[str, Any]]) -> str:
         role = str(message.get("role") or "user").strip().upper()
         if role == "SYSTEM":
             continue
+        name = str(message.get("name") or "").strip()
         content = message.get("content")
         if isinstance(content, str):
             body = content.strip()
@@ -34,7 +36,10 @@ def _render_conversation_prompt(messages: list[dict[str, Any]]) -> str:
             body = json.dumps(content, ensure_ascii=False, indent=2, default=str)
         if not body:
             continue
-        rendered.append(f"{role}:\n{body}")
+        if role == "TOOL" and name:
+            rendered.append(f"{role} ({name}):\n{body}")
+        else:
+            rendered.append(f"{role}:\n{body}")
     if not rendered:
         return "USER:\nPlease answer the request."
     return "\n\n".join(rendered)
@@ -76,6 +81,24 @@ def _expects_json_output(messages: list[dict[str, Any]]) -> bool:
     return False
 
 
+def _has_tool_result_message(messages: list[dict[str, Any]]) -> bool:
+    for message in messages:
+        if str(message.get("role") or "").strip().lower() == "tool":
+            return True
+    return False
+
+
+def _get_tool_result_names(messages: list[dict[str, Any]]) -> set[str]:
+    names: set[str] = set()
+    for message in messages:
+        if str(message.get("role") or "").strip().lower() != "tool":
+            continue
+        name = str(message.get("name") or "").strip()
+        if name:
+            names.add(name)
+    return names
+
+
 def _build_json_schema(required_fields: dict[str, Any]) -> dict[str, Any]:
     property_schema = {
         "type": ["string", "number", "integer", "boolean", "object", "array", "null"]
@@ -87,6 +110,102 @@ def _build_json_schema(required_fields: dict[str, Any]) -> dict[str, Any]:
         "required": list(required_fields.keys()),
         "additionalProperties": True,
     }
+
+
+def _build_tool_choice_schema(
+    tools: list[dict[str, Any]],
+    final_schema: dict[str, Any] | None,
+    *,
+    allow_final: bool,
+    allowed_tool_names: list[str] | None = None,
+) -> dict[str, Any]:
+    tool_names = [str(tool.get("name") or "") for tool in tools if str(tool.get("name") or "").strip()]
+    if allowed_tool_names:
+        allowed = {name for name in allowed_tool_names if name}
+        tool_names = [name for name in tool_names if name in allowed]
+    response_types = ["tool_call", "final"] if allow_final else ["tool_call"]
+    properties: dict[str, Any] = {
+        "response_type": {
+            "type": "string",
+            "enum": response_types,
+        },
+        "tool_name": {
+            "type": "string",
+            "enum": tool_names or [""],
+        },
+        "arguments": {
+            "type": "object",
+            "additionalProperties": True,
+        },
+        "final_text": {
+            "type": "string",
+        },
+    }
+    if final_schema is not None:
+        properties["final_json"] = final_schema
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": ["response_type"],
+        "additionalProperties": False,
+    }
+
+
+def _render_tool_protocol(
+    tools: list[dict[str, Any]],
+    *,
+    expects_json_output: bool,
+    require_tool_call: bool,
+    allowed_tool_names: list[str] | None = None,
+) -> str:
+    filtered_tools = tools
+    if allowed_tool_names:
+        allowed = {name for name in allowed_tool_names if name}
+        filtered_tools = [tool for tool in tools if str(tool.get("name") or "") in allowed]
+    lines = [
+        "TOOL CALL COMPATIBILITY MODE:",
+        "You may request exactly one tool call at a time using structured output.",
+        "If a tool is needed next, set response_type='tool_call', choose exactly one tool_name, and provide JSON arguments.",
+    ]
+    if require_tool_call:
+        lines.append("This turn requires a tool call. Do not return a final answer yet.")
+    else:
+        lines.append("If no tool is needed, set response_type='final'.")
+        if expects_json_output:
+            lines.append("When response_type='final', populate final_json with the final structured output.")
+        else:
+            lines.append("When response_type='final', populate final_text with the final answer.")
+    if allowed_tool_names:
+        lines.append(f"Only these tools are valid for this turn: {', '.join(allowed_tool_names)}")
+    lines.append("Available tools:")
+    for tool in filtered_tools:
+        name = str(tool.get("name") or "").strip()
+        description = str(tool.get("description") or "").strip()
+        parameters = tool.get("parameters") or {}
+        lines.append(f"- {name}: {description}")
+        lines.append(json.dumps(parameters, ensure_ascii=False, indent=2))
+    return "\n".join(lines)
+
+
+def _select_required_tools(tools: list[dict[str, Any]], messages: list[dict[str, Any]]) -> list[str] | None:
+    available = {
+        str(tool.get("name") or "").strip()
+        for tool in tools
+        if str(tool.get("name") or "").strip()
+    }
+    used = _get_tool_result_names(messages)
+
+    if "codes_check_and_processing_tool" in available and "codes_check_and_processing_tool" not in used:
+        return ["codes_check_and_processing_tool"]
+    if (
+        "check_code_completeness_tool" in available
+        and "codes_check_and_processing_tool" in used
+        and "check_code_completeness_tool" not in used
+    ):
+        return ["check_code_completeness_tool"]
+    if "run_tests_tool" in available and "run_tests_tool" not in used:
+        return ["run_tests_tool"]
+    return None
 
 
 class ClaudeCliModel(Model):
@@ -125,21 +244,23 @@ class ClaudeCliModel(Model):
         **kwargs,
     ) -> dict:
         merged_settings = self._parse_settings(settings)
-        if tools:
-            extra_system_note = (
-                "Tool calling is unavailable in ClaudeCliModel compatibility mode. "
-                "Answer directly without requesting tools."
-            )
-        else:
-            extra_system_note = None
-
         system_prompt = _extract_system_prompt(messages)
-        if extra_system_note:
-            system_prompt = f"{system_prompt}\n\n{extra_system_note}" if system_prompt else extra_system_note
 
         prompt_text = _render_conversation_prompt(messages)
         required_fields = _extract_required_fields(messages)
         use_schema = bool(required_fields) and _expects_json_output(messages)
+        final_schema = _build_json_schema(required_fields) if use_schema else None
+        forced_tools = _select_required_tools(tools or [], messages) if tools else None
+        require_tool_call = bool(tools) and (forced_tools is not None or not _has_tool_result_message(messages))
+
+        if tools:
+            tool_protocol = _render_tool_protocol(
+                tools,
+                expects_json_output=use_schema,
+                require_tool_call=require_tool_call,
+                allowed_tool_names=forced_tools,
+            )
+            system_prompt = f"{system_prompt}\n\n{tool_protocol}" if system_prompt else tool_protocol
 
         command = [
             self._cli_command,
@@ -149,15 +270,27 @@ class ClaudeCliModel(Model):
             "--permission-mode",
             self._permission_mode,
             "--no-session-persistence",
-            "--tools",
-            "",
         ]
+        command.extend(["--tools", ""])
         if self._model_name:
             command.extend(["--model", self._model_name])
         if system_prompt:
             command.extend(["--system-prompt", system_prompt])
-        if use_schema:
-            command.extend(["--json-schema", json.dumps(_build_json_schema(required_fields), ensure_ascii=False)])
+        if tools:
+            command.extend([
+                "--json-schema",
+                json.dumps(
+                    _build_tool_choice_schema(
+                        tools,
+                        final_schema,
+                        allow_final=not require_tool_call,
+                        allowed_tool_names=forced_tools,
+                    ),
+                    ensure_ascii=False,
+                ),
+            ])
+        elif use_schema:
+            command.extend(["--json-schema", json.dumps(final_schema, ensure_ascii=False)])
         command.append(prompt_text)
 
         env = os.environ.copy()
@@ -193,8 +326,35 @@ class ClaudeCliModel(Model):
         if parsed.get("is_error"):
             raise RuntimeError(f"Claude CLI error: {parsed}")
 
-        if use_schema and isinstance(parsed.get("structured_output"), dict):
-            content: object = json.dumps(parsed["structured_output"], ensure_ascii=False)
+        structured_output = parsed.get("structured_output")
+
+        if tools and isinstance(structured_output, dict):
+            response_type = structured_output.get("response_type")
+            if response_type == "tool_call":
+                tool_name = str(structured_output.get("tool_name") or "").strip()
+                if not tool_name:
+                    raise RuntimeError(f"Claude CLI tool-call response missing tool_name: {parsed}")
+                arguments = structured_output.get("arguments")
+                if not isinstance(arguments, dict):
+                    arguments = {}
+                return {
+                    "type": ModelResponseType.TOOL_CALL,
+                    "content": [{
+                        "id": "claude-cli-tool-call",
+                        "name": tool_name,
+                        "arguments": arguments,
+                    }],
+                    "raw_response": parsed,
+                }
+            if response_type == "final":
+                if use_schema and isinstance(structured_output.get("final_json"), dict):
+                    content = json.dumps(structured_output["final_json"], ensure_ascii=False)
+                else:
+                    content = structured_output.get("final_text", "")
+            else:
+                raise RuntimeError(f"Claude CLI returned unknown response_type: {parsed}")
+        elif use_schema and isinstance(structured_output, dict):
+            content = json.dumps(structured_output, ensure_ascii=False)
         else:
             content = parsed.get("result", "")
 

@@ -9,8 +9,15 @@ from masfactory.components.graphs.internal_nodes import InternalGraphNode
 from masfactory.components.agents.single_agent import SingleAgent
 import inspect
 import logging
+import re
 from masfactory.core.node_template import NodeTemplate
 from masfactory.utils.hook import masf_hook
+
+
+_ITERATION_TERMINATE_PATTERN = re.compile(
+    r"^\s*terminate\s+after\s+(\d+)\s+iterations?\.?\s*$",
+    flags=re.IGNORECASE,
+)
 
 
 class Loop(BaseGraph):
@@ -31,6 +38,7 @@ class Loop(BaseGraph):
     The loop supports cyclic execution only through the internal controller:
     internal nodes should feed back by `edge_to_controller`, not by direct inner cycles.
     """
+
     def __init__(self,
             name:str,
             max_iterations:int=10,
@@ -226,6 +234,12 @@ class Loop(BaseGraph):
                 - If `terminate_condition_function` is provided, evaluate by callable.
                 """
                 terminate: bool = False
+
+                if self._terminate_condition_prompt:
+                    match = _ITERATION_TERMINATE_PATTERN.match(str(self._terminate_condition_prompt))
+                    if match:
+                        target_iterations = int(match.group(1))
+                        return self._current_iteration > target_iterations
 
                 if self._terminate_condition_model != None and self._terminate_condition_prompt != None:
                     condition_text = str(self._terminate_condition_prompt or "")
