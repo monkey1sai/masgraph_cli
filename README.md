@@ -152,6 +152,14 @@ python -c "from importlib.metadata import version; print('masfactory version:', 
 python -c "from masfactory import RootGraph, Graph, Loop, Agent, CustomNode; print('import ok')"
 ```
 
+If you want to run MASFactory against the local Claude Code CLI instead of an OpenAI-compatible API:
+
+```bash
+# Make sure Claude Code CLI is already authenticated locally.
+claude --version
+python -c "from masfactory import ClaudeCliModel; print('claude cli adapter ok')"
+```
+
 ### 2) Install MASFactory Visualizer (VS Code Extension)
 
 MASFactory Visualizer is used for graph preview, runtime tracing, and human-in-the-loop interaction.
@@ -206,6 +214,8 @@ print(out["answer"])
 
 Most workflows require `OPENAI_API_KEY`. Some scripts also read `OPENAI_BASE_URL` / `BASE_URL` and `OPENAI_MODEL_NAME`.
 
+Some demos also support the local Claude Code CLI via `--provider claude-cli`, which does not require `OPENAI_API_KEY` if your local `claude` command is already authenticated.
+
 ```bash
 # ChatDev
 python -m applications.chatdev.workflow.main --task "Develop a basic Gomoku game." --name "Gomoku"
@@ -216,8 +226,14 @@ python -m applications.chatdev_lite.workflow.main --task "Develop a basic Gomoku
 # ChatDev Lite (VibeGraphing version)
 python -m applications.chatdev_lite_vibegraph.main --task "Write a Ping-Pong (Pong) game." --name "PingPong"
 
+# ChatDev Lite (VibeGraphing version, local Claude Code CLI)
+python -m applications.chatdev_lite_vibegraph.main --provider claude-cli --model sonnet --task "Build a tiny Python CLI app that prints hello and exits." --name "hello_cli"
+
 # VibeGraph Demo (intent → graph_design.json → compile → run)
 python -m applications.vibegraph_demo.main
+
+# VibeGraph Demo (local Claude Code CLI)
+python -m applications.vibegraph_demo.main --provider claude-cli --model sonnet
 
 # AgentVerse · PythonCalculator
 python applications/agentverse/tasksolving/pythoncalculator/run.py --task "write a simple calculator GUI using Python3."

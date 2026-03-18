@@ -30,22 +30,40 @@ export OPENAI_BASE_URL="https://api.openai.com/v1"
 export OPENAI_MODEL_NAME="gpt-4o-mini"
 ```
 
+Or use the local Claude Code CLI without any OpenAI API key:
+
+```bash
+# Make sure `claude auth login` or subscription-based Claude Code login is already done.
+claude --version
+```
+
 ## Run
 
 ```bash
 uv run python applications/vibegraph_demo/main.py --model gpt-4o-mini
 ```
 
+Run with the local Claude Code CLI provider:
+
+```bash
+uv run python applications/vibegraph_demo/main.py \
+  --provider claude-cli \
+  --model sonnet
+```
+
 ### CLI Arguments
 
 | Argument | Default | Description |
 |---|---|---|
-| `--model` | `gpt-4o-mini` | Model used for invoke (running the compiled agents) |
+| `--provider` | `openai` | Model provider backend (`openai` or `claude-cli`) |
+| `--model` | provider-dependent | Model used for invoke (running the compiled agents) |
 | `--api_key` | `$OPENAI_API_KEY` | API key for invoke model |
 | `--base_url` | `$OPENAI_BASE_URL` | Base URL for invoke model |
 | `--build_model` | same as `--model` | Model used for build (generating the graph design) |
 | `--build_api_key` | same as `--api_key` | API key for build model |
 | `--build_base_url` | same as `--base_url` | Base URL for build model |
+| `--cli-command` | `claude` | Claude Code CLI executable path when using `claude-cli` |
+| `--cli-timeout` | `900` | Per-request timeout in seconds for `claude-cli` |
 
 ### Using a Different Build Model
 
