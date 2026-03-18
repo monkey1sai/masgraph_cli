@@ -56,6 +56,13 @@ export OPENAI_BASE_URL="https://api.openai.com/v1"
 export OPENAI_MODEL_NAME="gpt-4o-mini"
 ```
 
+Or use the local Claude Code CLI without any OpenAI API key:
+
+```bash
+# Make sure `claude auth login` or subscription-based Claude Code login is already done.
+claude --version
+```
+
 ## Run
 
 ```bash
@@ -65,6 +72,22 @@ uv run python applications/chatdev_lite_vibegraph/main.py \
   --org "DefaultOrganization" \
   --model "${OPENAI_MODEL_NAME:-gpt-4o-mini}"
 ```
+
+Run with the local Claude Code CLI provider:
+
+```bash
+uv run python applications/chatdev_lite_vibegraph/main.py \
+  --provider claude-cli \
+  --model sonnet \
+  --task "Build a tiny Python CLI app that prints hello and exits." \
+  --name "hello_cli" \
+  --org "DefaultOrganization"
+```
+
+Optional Claude CLI flags exposed by this entrypoint:
+
+- `--cli-command`: override the CLI executable path (default: `claude`)
+- `--cli-timeout`: per-request timeout in seconds (default: `900`)
 
 Outputs are written to `applications/chatdev_lite_vibegraph/assets/output/WareHouse/<project>_<org>_<timestamp>/`.
 
